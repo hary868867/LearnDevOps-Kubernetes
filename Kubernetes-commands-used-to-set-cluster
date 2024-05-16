@@ -1,0 +1,189 @@
+ cd /etc/fstab
+ 
+ wget https://github.com/containerd/containerd/releases/download/v1.7.16/containerd-1.7.16-linux-amd64.tar.gz
+ 
+ tar Cxzvf /usr/local containerd-1.7.16-linux-amd64.tar.gz
+ 
+ systemctl daemon-reload
+ systemctl enable --now containerd
+ 
+ mkdir -p /usr/local/lib/systemd/system/
+ touch /usr/local/lib/systemd/system/containerd.service
+ vim /usr/local/lib/systemd/system/containerd.service
+  
+ wget https://github.com/opencontainers/runc/releases/download/v1.2.0-rc.1/runc.amd64
+ 
+ install -m 755 runc.amd64 /usr/local/sbin/runc
+ 
+ wget https://github.com/containernetworking/plugins/releases/download/v1.4.1/cni-plugins-linux-amd64-v1.4.1.tgz
+ mkdir -p /opt/cni/bin
+ tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.4.1.tgz
+ 
+-----------------
+ 
+
+    vim ip4_enabling.sh
+    chmod 755 ip4_enabling.sh
+    ./ip4_enabling.sh
+	
+	
+    sudo sysctl --system
+    sudo apt-get install -y containerd
+ 
+    mkdir -p /etc/containerd
+    sudo containerd config default | sudo tee /etc/containerd/config.toml
+    vim config.toml
+    systemctl restart containerd
+    vim install_kubeadm.sh
+    chmod 755 install_kubeadm.sh
+    ./install_kubeadm.sh
+    systemctl status containerd.service
+ 
+    wget https://raw.githubusercontent.com/projectcalico/calico/master/manifests/calico.yaml
+  
+    kubeadm init --kubernetes-version v1.29.1
+
+    mkdir -p /root/.kube
+   41  cd /etc/kubernetes/
+   42  ls
+   43  cat admin.conf
+   44  clear
+   45  ls
+   46  cd
+   47  clear
+   48  cp -i /etc/kubernetes/admin.conf /root/.kube/config
+   49  chown $(id -u):$(id -g) /root/.kube/config
+   50  kubectl apply -f calico.yaml
+   51  kubectl get pods --all-namespaces
+   52  kubectl get nodes
+   53  clear
+   54  ls
+   55  sudo systemctl status kubelet.service
+   56  cd /etc/kubernetes/manifests/
+
+ 
+--------------------
+
+
+
+
+
+
+----------------------
+
+
+
+
+#!/bin/bash
+
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+# sysctl params required by setup, params persist across reboots
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+ 
+ 
+------------------------------------
+
+#!/bin/bash
+
+sudo sysctl --system
+sudo apt-get update
+sudo apt-get install -y containerd
+sudo mkdir -p /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml
+sudo sed -i 's/            SystemdCgroup = false/            SystemdCgroup = true/' /etc/containerd/config.toml
+
+echo "printing grep"
+
+grep 'SystemdCgroup = true' /etc/containerd/config.toml
+
+sudo systemctl restart containerd
+
+
+--------------------------------------
+
+#!/bin/bash
+
+
+#Install Kubernetes packages - kubeadm, kubelet and kubectl
+#Add k8s.io's apt repository gpg key, this will likely change for each version of kubernetes release.
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+
+#Add the Kubernetes apt repository
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+
+#Update the package list and use apt-cache policy to inspect versions available in the repository
+sudo apt-get update
+apt-cache policy kubelet | head -n 20
+
+
+#Install the required packages, if needed we can request a specific version.
+#Use this version because in a later course we will upgrade the cluster to a newer version.
+#Try to pick one version back because later in this series, we'll run an upgrade
+VERSION=1.29.1-1.1
+sudo apt-get install -y kubelet=$VERSION kubeadm=$VERSION kubectl=$VERSION
+sudo apt-mark hold kubelet kubeadm kubectl containerd
+
+
+#To install the latest, omit the version parameters. I have tested all demos with the version above, if you use the latest it may impact other demos in this course and upcoming courses in the series
+#sudo apt-get install kubelet kubeadm kubectl
+#sudo apt-mark hold kubelet kubeadm kubectl containerd
+
+
+#1 - systemd Units
+#Check the status of our kubelet and our container runtime, containerd.
+#The kubelet will enter a inactive (dead) state until a cluster is created or the node is joined to an existing cluster.
+sudo systemctl status kubelet.service
+sudo systemctl status containerd.service
+
+--------------------------------------
+
+
+ 
+ kubeadm join 172.31.28.157:6443 --token px9bfs.2oc7vltj51kwxc42 --discovery-token-ca-cert-hash sha256:a738d476049cf216dce85080564188a7ad49ad29a7eaf5bbcece13dbfd39e53c
+ 
+ 
+ 
+ kubeadm join 172.31.17.46:6443 --token w4p5fe.cqpg8z00r2c2g6al --discovery-token-ca-cert-hash sha256:a3eec6c1687ecc5004b3b79607a8552190dcef6aa2e5bab2077631cfdf9406f4
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   1  vim ip4_enabling.sh
+    2  vim install-kubeadm.sh
+    3  chmod 755 ip4_enabling.sh
+    4  chmod 755 install-kubeadm.sh
+    5  ./ip4_enabling.sh
+    6  ./containerd.sh
+   13  ./install-kubeadm.sh
+   14  exit
+   15  sudo kubeadm join 172.31.28.157:6443 --token px9bfs.2oc7vltj51kwxc42 --discovery-token-ca-cert-hash sha256:a738d476049cf216dce85080564188a7ad49ad29a7eaf5bbcece13dbfd39e53c
+
+
+kubeadm join 10.0.2.15:6443 --token k9whsc.wy6kerg2d4h58u4p --discovery-token-ca-cert-hash sha256:09c9800c7cae6b5921b33ab5ff492974b767c7f149e418e10b44106d72afcd5d
+
+
+
+
+aws
+
+
+kubeadm join 172.31.17.46:6443 --token 6vea8f.vzg0m1oanqmt66pt --discovery-token-ca-cert-hash sha256:a3eec6c1687ecc5004b3b79607a8552190dcef6aa2e5bab2077631cfdf9406f4

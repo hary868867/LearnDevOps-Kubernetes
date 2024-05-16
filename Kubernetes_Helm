@@ -1,0 +1,78 @@
+Kubernetes Helm 
+
+what is Helm - Helm is a package manager for kubernetes 
+
+--
+
+installing the helm - all commands are in lab4_Helm_install of helm folder 
+
+--
+
+deleting helm after all done - helm uninstall command to uninstall the resources created by helm
+                               then deleting the helm binary which we have installed 
+							
+--
+
+helm2  - although the course is helm3 ... many use helm2, so colling wanna show us how to installer Helm2
+
+         with Helm2, we need both helm and tiller ... tiller can automatically downloads by helm init command & tiller is a pod which runs in kube-system namespace 
+         
+		 uses of tiller .. dont know still 
+		 
+there is no tiller for helm3 ...if we need to use helm2 only, then tiller is needed 
+
+--
+
+helm charts - helm chart is a package which contains many files to get the desired work we need 
+              
+			  helm chart can be compressed as an archive 
+			  
+so what are the general files that are present in Helm chart : chart.yml file which has info about that particular helm chart 
+                                                               there will be template sub folder which contains resources files like pod.yml, service.yml, ingress.yml etc etc 
+															   with in the templates sub-folder, there will be customizable templates with placeholders that are replaced by values using something using helper functions. 
+															   
+															   we can add dependencies in chart.yml file for Helm3, for Helm2.. we put them in a seperate file requirements.yml 
+															   
+															   there is also values.schema.json file 
+															   
+															   there can be testing folder which contains pod defnitions files that are used for testing 
+															   
+															   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

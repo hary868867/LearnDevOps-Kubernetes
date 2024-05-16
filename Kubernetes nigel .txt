@@ -1,0 +1,181 @@
+Kubernetes nigel 
+
+1 & 2. OVERVIEW & OUTLINE 
+what we learn here is... we'll deploy an application to Kubernetes, expose it to the internet, scale it up and down, test self healing, and perform a zero downtime rolling update and a version rollback.         
+We'll look at how to deploy apps on Kubernetes using pods, we'll expose an app to the network with services. In fact, we'll even hook it into a cloud load balancer for access over the internet. Then we'll round things out with scaling, self‑healing, zero‑downtime, rolling updates, and a version rollback
+So, Let's start.              
+
+3. WHAT IS KUBERNETES
+
+a. if legacy apps had tens or hundreds of virtual machines, there's a pretty solid chance that the modernized containerized apps are going to have thousands of containers. And if that's the case, I can tell you right now you're going to need something to help you manage them. Well, say hello to Kubernetes. Now another thing I want to mention is that we've kind of abandoned this traditional view of the cloud and of your data center as a collection of computers in favor of the more powerful idea that the cloud or your data center is a computer like a giant one. So if we look at a computer, and I'm keeping it high level, but it's got processing cores, high speed memory, slower persistent storage, and networking. And for the most part, application developers are not bothered which CPU core, for instance, or memory DIMM that they're application is using. We just let the operating system look after all of that. And you know what? It works an absolute treat, and the world of application development thrives on this principle. So it's only natural to take it to the next level and treat your cloud or your data center in the same way. So what am I saying? Well, instead of caring which VM or compute instance to run all of your application bits and pieces on, instead of that, let's have something like a cloud OS to take care of all of that for us. Well, I'm sure you get this. Say hello to Kubernetes.   
+   So what I'm saying is we can basically say hey, Kubernetes, I've got this app, and it consists of whatever, these different services. And you know what? Just run it for me, please. And Kubernetes does that. It goes away and does all the hard stuff for us. Now, I don't know, if you like analogies, it's a bit like sending packages via a courier service. So in that situation, we pack up whatever we're sending, obviously according to the courier's packing specifications, we label it with some information, and we just hand it over to the courier, and that's us done. All the decisions of which routes to use or routes and which planes and highways and all that kind of jazz, all outsourced to the courier. Well, it's kind of the same with Kubernetes. We package our apps as containers, describe them in a declarative manifest, and just give it to Kubernetes             
+   Then, of course, behind the scenes, Kubernetes does all the hard work of look whatever, deciding what nodes to run stuff on and how to pull and verify images and start containers and attach to networks and all that complexity, right? I'm not bothered. Kubernetes just takes care of it.       
+
+-----------------------------------------------------------------------------------------
+
+4. KUBERNETES ARCHITECTURE 
+   
+a. orchestration meaning -
+   maintaining the app to be to customers all the time like scaling it if requests are high, replacing a pod if its unhealthy, load balacing based on incoming requests ... maintaining all this together is called orchestration
+
+b. control plane nodes -
+   previously called as master nodes. generally three or five control nodes are used in real world, and the number should be odd meaning you shud not have two nodes because kubernetes way is one is leader other are followers, if two exists then it would be confusing who shud be the leader 
+   so, as said, you need three virtual machines if you want to use three nodes of control plane, kubernetes doesnt care if they are on-prem or cloud instances or any other, it just needs three virtual machines running connected by a network 
+   and if you dont want this hecticness, you can choose cloud kubernetes providers like EKS or AKS ... they will maintain control nodes and you dont have to anything regarding control nodes, you just pay them for the control nodes
+   
+   the main components of control node are Kube-Api server, cluster store,kube-controller-manager, kube-scheduler 
+      kube-API server         : it is the front door of the kubernetes. anything we wanna do in kubernetes, we communicate with the api server of the control plane, not just us, if worker node needs any data, it talks to control plane via api server, also the other nodes in control plane talk to each other via this api server.. kube api server will expose an endpoint with port number ...so we shud give something through that api, it will authenticate and then comunicated workner node to execute tasks 
+      cluster store           : it is where config and state of cluster are stored, like the config and state of all apps.//  Right now it is based on the etcd NoSQL database, and it's automatically distributed across all control plane nodes. Though, you can swap it out for something else, or you can even run the etcd bits on dedicated nodes, but that's pretty advanced stuff.Anyway, look, it is super critical to cluster operations, and in large busy clusters, honestly, it's probably the first thing that's going to become a performance bottleneck for you. And look, that's no disrespect to etcd, it's just the fact that doing distribute to databases at scale, it's hard! So, if you expect your clusters to be large and busy, like lots of change, then you really should look at the performance of the cluster store. Oh, look, and of course, you've got to have things in place for backup and recovery and regularly test them // didnt understand this database point //
+      kube-controller-manager : it controls all the other components in kubernetes. it maintains the state of the components so that if its unhealthy it will make sure new component is added. in controller there are many other sub controllers like node-controller, deployment controller, end point controller etc which each will control its own individual component 
+      kube-scheduler          : it wathces the api server for any new tasks and assigns them to nodes accordingly 
+   so these the main components of control node which does pretty much everything on kuberntes. next is about worker nodes 
+
+c. Worker Nodes -
+   worker is where our apps will run, there are three components in worker. they are Kubelet, container-run-time, kube-proxy 
+   kubelet           : actually this kubelet runs on both control and worker nodes. it will do things like adding it CPU ram and other resources to the overall cluster pool so that the scheduler can intelligently assign work to the cubit or to the node. Now, speaking of work, and we'll get to this shortly.
+   cotainer-run-time : kubernetes doesnt know how to pull and run images, the container run time does all the work 
+   kube-porxy        : it is for the network on nodes, it assigns one ip per pod. it also acts as netwrok load balancer 
+   
+d. Desired model and Desired state 
+   kubernetes follows declarative model meaning we give the desired state of what we want in a file just like we give desired state in a terraform file ( terraform is also declarative model )
+   that file will be save in the config etcd ... 
+   
+e. Mighty Pod
+   pod is where container runs.. we can run multiple containers in a pod. technically pod means shared execution environment. an execution environment means an environment necessary for an app to run like an ip address, a necessary file system, a bit of shared memory etc ...
+   every pod will have an ip assigned to it and a port for the container in it. 
+   
+f. Networking with services 
+   we already learnt each pod will have one ip.. lets say we have a 4 pods, they have different ip's, and the new pod which scales also have new ip, then how kubernetes can track this multiple ips.
+   Kubernetes service is what helps in this situation. it will load balance based on the network incoming and how it does it, by using labels
+   for every pod we need to give labels, with the help of labels kubernetes service will load balance the network to pods 
+   
+g. Game-changing deployments 
+   in the controller, there is deployment controller. lets say we need 4 pods in the desired state, the deployment controller checks the desired state and makes it matches the observed state. there is more jargon by nigel, but thats the whole matter 
+   there is replica set in the manifest file, we give the desired state of pod in the replica set, not the deployment, need to know more about replica set, lets see if we get it in coming videos.
+   
+h. the kubernetes api server 
+   diff between api & api server -> all the components of the kubernetes like pods, service, replica sets, nodes are a part of an api, all these are as resources in the api with a specific version. the apiVersion which we give in the manifest file is the version of that resources in the api 
+   and the api server is which exposes those resources in the api to an end point. the end point is hppts rest api 
+   so simply, api is what manages all the resources and api server is by which we can communicate with them 
+   
+--------------------------------------------------------------------------------------------------------------------------------------- 
+   
+5. WORKING WITH PODS 
+
+a. Alright, the process for building and deploying an app to Kubernetes is pretty much this. You start out with app code, build it into a container image, store that in a repo, define it in a Kubernetes manifest, and then post that to the API server. And at that point, that what's done. Kubernetes, then does the rest
+   Create a docker file, build it into image and push it in to the repository, its either the docker repository, ECR, ACR or any other cloud kubernetes service 
+   
+   nigel have some docker file which makes node js app to an image in the v1 ... so now, we have docker file and lets build it to an image 
+   
+   // docker build -t hary867/getting-started-k8s:1.0 .  // docker image is built. we wanna push it some image repository like ECR or ACR etc ... we used the standard as always I.e, Docker hub, so now lets push image to the docker hub 
+   // docker push hary867/getting-started-k8s:1.0        // the image is pushed to the docker hub 
+
+b. Now, we need to create a pod manifest file, in the github, you already forked getting-started-k8's of nigel, its in that, understand the contents of it 
+   contents of it are - apiVesrion( the version of the resource pod uses by kubernetes ).. labels( labels are just like key value pairs ).. spec ( specifications of container shud be given here, name of container, port it listens & the image name shud be given here, defaultly it takes image from docker hub, but if its in ECR or ACR, we need to give dns at front ).. other than the spec the details that are given are the pod details in which container shud run, like metadata, kind, api version .. all these are pod specifications        
+   now we need the deploy the pod.
+   
+   go to the place where the pod file is and run the below command ( or we can run from where you are by giving the full path )
+       kubectl apply -f pod.yml                                                               //   this will create the pod with the container ... -f is to specify we are declaratively giving 
+       kubectl get pods --watch                                                               //   shows the kubernetes pods 
+       kubectl get pods -o wide -                                                             //   shows the extra columns of pods
+       kubectl describe pods podname                                                          //   gives all the information of pod 
+       kubectl delete pod podname                                                             //   deletes the pod
+       kubectl delete -f podfile.yml                                                          //   delete pod file which also deletes pods 
+      
+   Nodes are virtual machines or cloud instances running Windows or Linux. Pods are our applications. So Pods run on the nodes. In fact, think of Pods as apps and nodes as infrastructure.        
+
+c. next, nigel showed about the multi container pod and the pod file is on the same directory where above pod file is. he didnt explain it much. we also didnt run that file. so need to check again
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+6.KUBERNTES SERVICES
+
+a. Alright, then. In this module, we're going to look at the Kubernetes service object, so, the way in Kubernetes to expose applications, both on the network and to the outside world   
+
+b. so, we have a pod running, but how we know it can run our app in browser .. we didnt check it, right ?? we didnt check it because we are not sure it runs because as we talked in architecture model, pods are unreliable .. so how we go forward 
+   as also discussed, we will connect to pods by a service, we will just connect to service and service lets us connect to pods 
+   
+   a service contains front end and back end ... in front end, Name & Cluster IP are components ... in back end, load balancer is the component 
+   
+   Front end - IP is called the cluster IP and it will be automatically assigned by kubernetes 
+               the name is for the inside use of the cluster... it is registered for the dns service.. every cluster will be registered for the dns service ... this dns service is the one that resolves the ip to the name and the resources of kubernetes uses the name other than the ip
+   back end  - so the service will load balance to the pods, how it does to certain pods.. its by using labels, we need to give labels on the service file so that the service resource will forward the traffic based on labels, thats why labels are very much important in kubernetes
+   
+   additionally, when we create a service, kubernetes creates an end point which dynamically lists the healthy pods that match the service label selector and the cluster IP. 
+   so whenver an app in another pod wants to talk to another app in another pod, its get the ip of the pod from the dns service by giving the name of app... when we want to connect to pod through nodeport, we just have give the port assigned to the node, kubernetes routes the traffic to pod and gets us the info.. also, if we want to connect from our load balancer to kubernetes, it is also possible. 
+   
+   this is simply about service, we have a learn a lot still ... but first, lets get the service in to action 
+   
+c. first, nigel is showing the imperative way, we just watch it but did not practice it because its not important, we will practice declarative
+   the command for the imperative way 
+    kubectl expose pod podname --name=servicename --target-port=8080 --type=NodePort       //   exposes pod to the service 
+    kubectl get svc                                                                        //   lists the services
+    kubectl delete svc servicename                                                         //   deletes the service 
+	
+d. Now, lets look at the declarative way 
+   we have nigels files for the service on the services directory. please go to it 
+   
+   in the contents the spec is most imp, spec will type, port,targetport and selector 
+   type - we can three types here, either nodeport or cluster ip or load balancer ... we didgnt get these differences yet, but let just see... nigel used node port, node port is the one which we connect to the node with 
+   port - port is which node will use to connect to the  srrvice 
+   target port -  is where actual container is running on 
+   selector    -  its the label, this is how service makes connection to you and pod, we shud give the same label we given the pod.yml file 
+   
+e. 
+	  
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7.KUBERNETES DEPLOYMENTS 
+
+a. unitl now, we know pod is the one where the app runs, pod is the one which provides execution environment for app... so, we knew kubernetes does the scaling, roll backs and updates... these are controlled by other resources in kubernetes 
+   those are replica sets & deployments .... replica sets controls the scaling, deployments control the roll back and updates.... but first what is meant by replica sets, roll back and update ... replica sets means the replica of pods, if we give 5, 5 identical pods will get created. update means an update to the image which inturn means updating the container and pod... roll back is when we update image 
+
+   in the github, there is a deployment file, check that & understand the contents of it 
+   the contents are apiVersion, kind, metadata, spec.... apiversion & kind are asusual, metadata consists of labels,
+   spec contains replicas, template & spec.... replicas is the that controls the self healing and roll back of deployments, means if we give 5 to replicas in the file, replicas will take care that there are 5pods always running no matter what, if one of the pod got broke, it instantly creates a replica of it 
+   template & spec consists of the pod & container data 
+   
+b. all the details shud be given in the deployment file, then 'kubectl apply -f filename' will deploy the appimage in the cluster   
+   what is meant by end point objects?? ( basically, when we create a service, it automatically creats some end points objects, these are just a representation of healthy pods running on the service ) .. commands related to endpoints.. 'kubectl get ep' lists the endpoints, 'kubectl describe ep nameofendpoint' describes the end pointsc.
+   kuberntes can self heal if one of the pod or node deleted accidentally. it make sure the number of nodes we given at time of creating a cluster and number of pods we given in replicas shud be intact 
+
+c. in the deployment file, we can give strategy and rolling update so that whenever we update the deployment file, instead of deleting and creating all replicas at once we can give max surge and maxUnavailable 
+   suppose we updated the image in deploy file and executed but we wanted the old one as it better, we can do roll back using the following commands 
+   'kubectl get rs'  -  gives the replicas that are presently running and also the previous ones, basically all replicas 
+   'kubectl rollout history deploy nameofdeploy'  -  shows how many revisions we have had through deployment file 
+   'kubectl rollout undo deploy nameofdeploy --to-revision=1'  -  rolls back to the previous version of the deployment file 
+   
+   
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+Name spaces, volumes is not covered
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+EXTRA POINTS 
+
+
+Well, generally speaking here, containers make our old scalability challenges seem pretty laughable.
+
+pod ip address that is shown when typed the command 'kubectl get pods' is actually the internal cluster IP on the pod network

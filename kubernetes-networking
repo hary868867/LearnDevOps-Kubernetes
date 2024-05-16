@@ -1,0 +1,201 @@
+Kubernetes storage 
+
+the whole point is we need a persistent data meaning a data which sticks even after the pod is lost... we need it because we dont know when a pod can break down 
+
+
+1. kubernetes provides API objects to get the persistent data ... those API objects are volume, persistent volume, persistent volume claim, storage class
+
+   for now, i think we need to give these four types which ever type we need in the 'kind' of the yaml file
+   
+   
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+  
+kubernetes netwroking model 
+  
+  
+  
+kubernetes netwokring model has some rules to follow, they are 
+
+1. all pods in any nodes of the cluster shud communicate with each other
+2. a software/agent like kubelet or kube-proxy in the cluster shud be able to communicate to all pods in the cluster
+3. no NAT ( network address translation ). didnt understand this, need to know about this. extra point in this: pods shud communicate with the real ip address. 
+
+there are three types of network in kubernetes, they are 
+
+node network   : a network shud be created in our data centre or cloud (eg: vpc ), we gonna attach nodes to that network and assign ip's for those nodes. so, nodes can talk to each other and can also talk to other services with in this network.  
+pod network    : every pod will have an ip and the ip will be assigned to it by pod CIDR range, this pod CIDR shud be created when creating a cluster, you didnt watch cluster creation, so you will not get how this pod cidr is created or implemented 
+cluster network: cluster network is used by services using cluster ip service type. this is where the services are reached.( didnt get this too, but lets see)
+
+Pod Networking and communication:
+
+inside a pod                 - two containers in one pod will communicate over a localhost
+pod to pod in same node      - pods will use an interface that is inside the pod name eth0 or vth0 ... this interface willget attached to a local software bridge... with the help of these they communicate with each other over pod ip 
+pod to pod in different node - pods will communicate over real ip's of them within the overlay network of the network between nodes (dont know what is meant by overlay network but we feel its a network in network which makes packets not go outside the network sending them through the tunnel, this may or may not right, please check clearly)
+access to services           - this is done by kube-proxy, there is more to it which dicussed later, so nothing for now
+
+CNI Plugins - in kubernetes, these plugins are used to create kubernetes network model, calcino and kubenet are eg plugins. kubernetes uses CNI (container network interface) for the networking on kubernetes cluster 
+
+-----
+
+Services in Kubernetes
+
+pods are ephemeral ( meaning they are not permanent )... they always come and go, a new pod replacing old pod is continuous action
+
+whenever any device wants to access the pod, its not possible to communicate directly to the pod as their ip's are not ephemeral which it makes the communication very difficult
+
+so, kubernetes service is the solution. the outside network will talk to the service and service transfers it & load balances it to a specific pod.
+
+..
+
+so, how the service works ??
+there is kube-proxy in every node in our cluster, we will install it at the time of creating the cluster 
+
+we need to write a service yml file to create the service, when the yml is executed, a service will be created and the kube-proxy exposes it to outside world 
+
+and how that service talks to pods ?? 
+while creating service via service yml file, we need to give a label selector option
+also, while creating a pod or a pod replica set via deployment file, we need to give the same label selector which we have given in service yml file.
+the service created connects and load balances the pods which only label selector matches 
+
+..
+
+there are three types of services  1. cluster IP 2. NodePort 3.LoadBalancer
+
+1. whenever we create a cluster ip type, an ip is assigned to that service by the cluster network. traffic will be routed to the pod endpoints using the pod network and iptable rules configured by kube-proxy 
+2. whenever we create a nodeport type, kubeproxy exposes the service to the real ip of the node, and a nodeport is assigned to the service. a cluster ip will also be assigned. traffic will come to the nodes, routes to pod endpoints using clusterip
+3. a load balancer is a real cloud load balancing we gonna get if we use this type, nodeport & cluster ip will also be there ... its just that its a cloud load balancer outside to the cluster.
+
+demo:
+
+what nocen doing is he creating a deployment and applying a service of type clusterIP to it through command line 
+
+kubectl create deployment hello-world-clusterip --image=psk8s.azurecr.io/hello-app:1.0          //  this command will create a deployment 
+kubectl expose deployment hello-world-clusterip --port=80 --target-port=8080 --type ClusterIP   //  this command will create a service type clusterIP with port 80 and target port 8080, even if we didnt specify --type, the default service type cluster will take is clusterIP 
+                                                                                                    ( port        - this is the port in which application will be accessed on )
+                                                                                                    ( target port - this is the port inside of our container based application inside of our pods )
+																									( didnt get diff between port and target port, need to know further )
+  
+                                                                             --type NodePort    //  this command will create a service type NodePort. the clusterIP will also be assigned, the difference would be when we type 'kubectl get service', for clusterIP port column it will show 80, for NodePort it will show 80:30177
+
+                                                                             --type LoadBalancer // this command will create a service type LoadBalancer
+																			                        note that this command shud be used in context EKS, AKS or GKE.. the above two types are compatible for on-prem but this is not as we are provisioning a load balancer outside the cluster 
+                                                                                                    here both nodeport and clusterIP will be present, we will also get external IP from the load balacer service of cloud 
+																									so, in below we used curl to access app in on-prem cluster, here, we need to use curl for that external IP generated by load balancer to access app. 
+                                                                                                    theory is this external ip will route to nodeport and the rest done as same as nodeport service 
+
+curl http://c1-cp1:$NODEPORT
+curl http://c1-node1:$NODEPORT
+curl http://c1-node2:$NODEPORT
+curl http://c1-node3:$NODEPORT                                                                  // this command will acess the node of the kube-cluster 
+                                                                                                   theory is, whichever node we access, its the responsibility of kube-proxy in a certain node to route the traffic to the clusterIP which it will route to pod network so that the request reaches to the app in the pod 
+
+
+kubectl get endpoints hello-world-clusterip                                                     // this command will give an ip which clusterIP directs it traffic to, the output of this command looks like 
+                                                                                                            NAME                       ENDPOINTS 
+                                                                                                    hello-world-clusterip         192.168.131.32:8080
+                                                                                                   ( so, the name is service name and endpoint is where this clusterIP traffic is directed to.. basically it is getting directed to an application running on port 8080 inside a pod with an ip 192.168.131.32 which it got from the CNI plugin calico.yml )
+
+kubectl scale deployment hello-world-clusterip --replicas=6                                     // this command will increase the pod count to 6 which are exact replica of the pod we create above via deployment 
+                                                                                                   now, every pod will get an IP on its own which will be reached on same port as app running is same 
+ 
+
+NODEPORT=$(kubectl get service hello-world-nodeport -o jsonpath='{ .spec.ports[].nodePort }')  // this command will assign the output of the command as a variable (basically a shell command )
+  
+  
+--
+
+Kubernetes Service Discovery 
+
+---
+
+
+kubernetes Ingress
+
+what is meant by ingress - talking to the http services inside the cluster from outside of cluster.
+
+ingress resource         - a resource which uses ingress 
+
+ingress controller       - is the one which implements the ingress resource rules, ingress controller recieves the request from outside world, based on its rules specified, it transverse traffic to the specific pod endpoint 
+
+ingress class            - this associates the ingress resource with ingress controller
+
+..
+
+an ingress controller can be run as pod inside a cluster eg: ngnix which noceno going to show us
+                      can be an external service           : citrix provided load balancer 
+					  can be a cloud one                   : aws alb ingress
+					  
+why ingress instead of load balancer - Let's take some time to call out why you'd use Ingress instead of load balancers. Ingress functions at Layer 7. This gives Ingress the ability to do things like path‑based routing and name‑based virtual hosts. In addition to that, Ingress controllers can implement higher‑level capabilities such as URL rerouting, session persistency, and dynamic waiting. Traditional load balancers don't have these capabilities and can load balance traffic only on IP and port. Ingress controllers are a single resource that can provide access to multiple internal services, where load balancers expose a single service on a single IP and port. This reduces resources consumed, which in some scenarios, can even save you on your cloud bill. And finally, when using an Ingress controller, your applications can experience reduced latency since requests are sent directly to Pod endpoints, rather than to Qproxy, which would then route to Pod endpoints and perhaps even routing traffic between nodes. Now I do want to call out that this is for HTTP‑based applications. You would need load balancers for load balancing TCP or UDP‑based services functioning at Layer 4.
+
+
+sample yml file to expose a single service with ingress 
+
+apiVersion : networking.k8.io/v1
+kind       : Ingress
+metadata   :
+ name : ingress_name
+spec:
+ ingressclassname: ngnix
+ defaultbackend: 
+   service:
+    name: service_name
+	port:
+	 number: 80                        // ingress must have ingress class name which would be implemented (noceno didnt show it, but we need to know)
+                                          ingress will have a default back end service which the requests route when there are no routes to go 
+				
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  

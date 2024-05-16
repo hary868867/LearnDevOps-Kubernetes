@@ -1,0 +1,67 @@
+kubectl options                    : apply/create, run, explain, delete, get, describe, exec, logs 
+
+additional options to main options : wide, watch, dry-run, yaml, json
+
+
+kuberentes objects                 : nodes, pods, services, deployments etc etc 
+
+kubectl command    sample          : kubectl [ command ] [type]  [nameoftype]     [flags]
+                                               ( get )   ( pod ) ( podname ) ( --output=yaml )
+											   (create)(deployment)(nginx)   ( --image=nginx )
+
+
+please check the commands used by nocen in vs code files - working wiht your cluster 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

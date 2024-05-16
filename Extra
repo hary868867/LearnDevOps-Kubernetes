@@ -1,0 +1,27 @@
+container run time means a software that can run containers ... kubernetes will talk to the container run time via CRI (container run time interface ) which is an API 
+
+both the container run time and kubernetes need to implement CRI so that kubernetes can run containers in pods 
+
+but docker cannot implement CRI ... so we need cri-dockerd ... from mirantis we installed all the necessary cri-dockerd 
+
+
+the Container Runtime must be configured to load the CNI plugins required to implement the Kubernetes network model 
+
+so what we need are plugins that can co-work with CNI which are called CNI plugins 
+
+--------------
+
+
+
+
+sudo swap off
+
+docker 
+
+cri-dockerd 
+
+------------
+
+
+sudo swapoff //  didnt find swaop off details in etc/fastab folder ... so we need to off that everytime we login 
+port         //  need to allow ports in sg's after kubernetes installation 

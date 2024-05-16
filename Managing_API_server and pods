@@ -1,0 +1,170 @@
+Kubernetes API Server
+
+you didnt get what Nocen, so what you did is, you copied the transcript to chat gpt and chat gpt explained you this 
+
+  API server - API server is the component where all the communication happens 
+  Resources  - Pods, Deployments, Services etc etc are called Resources ... basically the components of kubernetes 
+  API object - is the configuration of the Resource... API server monitors the API objects to maintain the desired state we provided
+               but first, what is configuration of resource - lets say a pod is there, we want that in a specific namespace which means we need some configuration to pod so that it belongs to that namespace .. this is simply called configuration of resource 
+			   after the resource is configured, it becomes an API object which gets tracked by API server to maintain that desired state.
+               in a simple terms, an API object is just the yaml file we write and Resource is the Actual resource that gets for the pod running 			   
+  etcd       - API server is stateless meaning it cant store data, all the API objects configured is stored in etcd 
+
+
+-----
+
+control plane components - 
+
+  API server         :  the communication point for the whole kubernetes cluster 
+  Cluster Store      :  where all the data is stored. this is where the state of the system is stored and persisted in a key value data store i.e, etcd
+  Scheduler          :  the scheduler tells kubernetes which nodes the pods shud start on based on the pods resource requirements in the work loads. 
+  Controller Manager :  controller manager has the job of implementing the lifecycle of controllers, basically keeping things in desired state 
+
+--
+
+Kubernetes API Objects : 
+
+the yaml file we write is simply the API Object. We give yaml to the kubernetes using kubectl ... kubectl first talks to API server ... API server directs that to store it in Cluster store ... after it stored cluster store, the controller acts to get that desired state up and running taking the help of scheduler 
+
+--
+
+Kubernetes API Objects are organised in three ways. they are Kind   :  Kind is a string value representing the REST resource this object represents in the API server. ( Eg : Pods, Deployments, service )
+                                                             Groups :  it groups the objects together based on their fucntion ( cant write eg because didnt understand this fully, need to understand it )
+															 Version:  Version schema of particular API object in API server
+
+
+--
+dry run:
+
+dry run is just like a terraform plan, it shows what the output gonna be but doesnt change anything 
+// kubectl apply -f deployment.yaml --dry-run=server  [ this dry run checks if the API server accepts the API objects correctly placed or not ]
+// kubectl apply -f deployment.yaml --dery-run=client [ dont know what client does, have to know .. may be checks for syntax of yaml ]
+
+--
+
+kubectl diff 
+
+lets say there are already resources running in kubernetes cluster and all our manifest data is stored in cluster store 
+now, we wanna change the workload of our cluster 
+
+so. when we run the new command with kubectl diff, it shows the difference between old workload and new workload like what are the resources gonna be added, what are the objects that gonna get changed etc etc 
+
+//kubectl diff -f newdeployment.yaml
+--
+
+demo is shown by nocen on - how to locate API server and use the appropriate cluster context to log in to kubernetes cluster [ didnt even understand what he is trying to do, but lets see ]
+
+the demo in vs code is 02 folder .. check 
+
+// kubectl config get-contexts [ dont know what that config command does, dont know what is meant by contexts ]
+                                 nocen said the output is the cluster info configured with in the local kube config file, but when we created a cluster, we didnt configure any config file, so what will be the default thing, please check in ur cluster in aws ]
+								 
+// kubectl cluster-info	        [ gives the basic info of the cluster ]		
+
+// kubectl api-resources        [ lists all the resources we can use in the cluster ]
+
+please check all other commands from vscode too, they are necessary 					  
+
+--
+
+API Groups
+
+API groups are used to organise the resources very well 
+
+API Groups are two types - Core API ( Legacy Group ) [eg: pods, node, namespace, persistentvolume, persistentvolume claim // mostly the fundamental elements will belong to this group ]
+                           Named API groups          [eg:    apps,     storage.k8s.io, rbac.authorization.k8s.io // down in brakcets mentioned are eg's of the resources belong to that group ]
+                                                         (Deployment)  (StorageClass)              (Role)
+
+--
+
+API Versioning 
+
+API Versioning helps us to build stable systems in kubernetes cluster. [ what is meant by stable systems first of all ?? chat gpt said it just means a stable system which doesnt fail in a general sense  ]
+
+kubernetes API is versioned at the API level [ dont know what it means, here is what chat gpt interpreted ... kubernetes API has many versions and each version is differentiated in terms of API only, not at the object level ]
+                                                                                                              each version of Kubernetes will have its own set of features that are applied to objects 
+																											  so when we define the API version for an Object, we need to know the API version features too, the objects will behave differently with each API version 
+																											  
+please note that  Kubernetes API and the overall Kubernetes system releases are managed independently
+
+kubernetes API version development process has three steps I.e,      Aplha,       Beta &    Stable 
+                                                                (experimental)(pre-release) (stable)
+                                                                  (v1aplpha1)   (v1beta1)    (v1)
+																  
+so my doubt here is, for a particular API version, we can always use v1 or we need to use v1aplha1 if there is no stable release available.
+
+
+now, demo 02 2 
+
+// kubectl api-resources 
+lists all the resources in the API server.. eg : pods, deployment etc etc 
+each resource will have one API version to it 
+
+many will have          v1                 meaning simply they are of v1 version
+some will have        apps/v1              meaning they belong to API group of apps and version is  v1 
+some will have      batch/v1beta1          meaning they belong to API group of batch and version is v1beta1 .. this means the resource associated with it doesnt have stable API Version 
+
+// kubectl api-resources --api-groups=apps // lists resources specific to apps API group 
+
+--
+
+Anatomy of the API request 
+
+Kubernetes API server is a RESTful http web application. since it is Restfulwebapp, we need to submit request and specify a URL resource location or API path [ didnt understand what is specifying resource location means but from what Nocen diagram explain, what i understood is, the manifest itself is the location path which will get converted to JSON after we apply kubectl  ]
+                                                                                    if the request is valid, API server will do a write operation in cluster store and returns us some output 
+
+
+--
+
+Managing Object, Namespaces and Labels 
+
+
+
+we can organise onjects in kubernetes in three ways 
+
+1. Namespaces   - we use namespaces when we wanna put boundary around object or resource in terms of security, naming or resource allocation 
+2. Labels       - we use labels when we wanna act on objects or group of objects or influence internal kubernetes operation 
+3. Annotations  - we use when we want to add additional info for object and metadata to particular object or resource 
+
+
+Namespaces: 
+def: Namespaces sub divide the cluster and its resources - meaning we can group certain resources and put them in namespaces 
+
+we can have more than one namespaces in cluster, exactly how many dont know 
+
+but why we need a namespace - resource grouping is the main theme 
+
+                              lets say we need different workloads for Prod, QA and Testing, we can put each resources used for prod in prod namespace
+							  similarly, lets say there is a microservcie app, we need different workload for different service, then we can each service in each namespace 
+
+benefits of Namespaces  :
+- we can limit who can access what inside of cluster based on namespaces 
+- we can use same name for a resource running in two namespaces, so there is no naming boundary, it is just limited to that namespace 
+
+working with namespaces :							  
+
+to create a a namespace ... just use Namespace in kind field of yaml and put objects in namespace, just give namespace name in metadata field 
+
+demo : 
+
+just explains some commands with namespaces, please do check vs code
+
+--
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
